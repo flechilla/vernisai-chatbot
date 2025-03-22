@@ -6,11 +6,15 @@ import {
   streamText
 } from 'ai'
 import { manualResearcher } from '../agents/manual-researcher'
+import { enhancedResearcher } from '../agents/enhanced-researcher'
 import { ExtendedCoreMessage } from '../types'
 import { getMaxAllowedTokens, truncateMessages } from '../utils/context-window'
 import { handleStreamFinish } from './handle-stream-finish'
 import { executeToolCall } from './tool-execution'
 import { BaseStreamConfig } from './types'
+
+// Feature flag for using the enhanced researcher
+const USE_ENHANCED_RESEARCHER = true
 
 export function createManualToolStreamResponse(config: BaseStreamConfig) {
   return createDataStreamResponse({
@@ -36,11 +40,18 @@ export function createManualToolStreamResponse(config: BaseStreamConfig) {
             searchMode
           )
 
-        const researcherConfig = manualResearcher({
-          messages: [...truncatedMessages, ...toolCallMessages],
-          model: modelId,
-          isSearchEnabled: searchMode
-        })
+        // Choose between enhanced or legacy researcher based on the feature flag
+        const researcherConfig = USE_ENHANCED_RESEARCHER
+          ? await enhancedResearcher({
+              messages: [...truncatedMessages, ...toolCallMessages],
+              model: modelId,
+              searchMode
+            })
+          : manualResearcher({
+              messages: [...truncatedMessages, ...toolCallMessages],
+              model: modelId,
+              isSearchEnabled: searchMode
+            })
 
         // Variables to track the reasoning timing.
         let reasoningStartTime: number | null = null

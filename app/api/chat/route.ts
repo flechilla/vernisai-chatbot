@@ -1,3 +1,4 @@
+import { ensurePromptSystemInitialized } from '@/lib/prompts/initialize-server'
 import { createManualToolStreamResponse } from '@/lib/streaming/create-manual-tool-stream'
 import { createToolCallingStreamResponse } from '@/lib/streaming/create-tool-calling-stream'
 import { Model } from '@/lib/types/models'
@@ -17,6 +18,9 @@ const DEFAULT_MODEL: Model = {
 
 export async function POST(req: Request) {
   try {
+    // Initialize the prompt system on first API call
+    await ensurePromptSystemInitialized()
+
     const { messages, id: chatId } = await req.json()
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
@@ -37,6 +41,7 @@ export async function POST(req: Request) {
     if (modelJson) {
       try {
         selectedModel = JSON.parse(modelJson) as Model
+        console.log('Selected model:', selectedModel)
       } catch (e) {
         console.error('Failed to parse selected model:', e)
       }
@@ -56,6 +61,7 @@ export async function POST(req: Request) {
     }
 
     const supportsToolCalling = selectedModel.toolCallType === 'native'
+    console.log('Supports tool calling:', supportsToolCalling)
 
     return supportsToolCalling
       ? createToolCallingStreamResponse({

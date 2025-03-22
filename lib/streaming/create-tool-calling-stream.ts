@@ -1,4 +1,5 @@
 import { researcher } from '@/lib/agents/researcher'
+import { enhancedResearcher } from '@/lib/agents/enhanced-researcher'
 import {
   convertToCoreMessages,
   createDataStreamResponse,
@@ -9,6 +10,9 @@ import { getMaxAllowedTokens, truncateMessages } from '../utils/context-window'
 import { isReasoningModel } from '../utils/registry'
 import { handleStreamFinish } from './handle-stream-finish'
 import { BaseStreamConfig } from './types'
+
+// Feature flag for using the enhanced researcher
+const USE_ENHANCED_RESEARCHER = true
 
 export function createToolCallingStreamResponse(config: BaseStreamConfig) {
   return createDataStreamResponse({
@@ -23,11 +27,18 @@ export function createToolCallingStreamResponse(config: BaseStreamConfig) {
           getMaxAllowedTokens(model)
         )
 
-        let researcherConfig = await researcher({
-          messages: truncatedMessages,
-          model: modelId,
-          searchMode
-        })
+        // Choose between enhanced or legacy researcher based on the feature flag
+        let researcherConfig = USE_ENHANCED_RESEARCHER
+          ? await enhancedResearcher({
+              messages: truncatedMessages,
+              model: modelId,
+              searchMode
+            })
+          : researcher({
+              messages: truncatedMessages,
+              model: modelId,
+              searchMode
+            })
 
         const result = streamText({
           ...researcherConfig,
