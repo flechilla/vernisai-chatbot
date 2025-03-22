@@ -1,0 +1,59 @@
+name: Pull Request Workflow
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Check for changes documentation
+        run: |
+          # Get current date
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          CHANGES_FILE="changes/$CURRENT_DATE.md"
+
+          # Check if the changes file exists and contains changes
+          if [ ! -f "$CHANGES_FILE" ] || [ ! -s "$CHANGES_FILE" ]; then
+            echo "::error::Please document your changes in $CHANGES_FILE"
+            exit 1
+          fi
+
+          echo "Changes documented in $CHANGES_FILE"
+
+      - name: Check for package lock file
+        id: check_lock
+        run: |
+          if [ -f "package-lock.json" ]; then
+            echo "LOCK_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "LOCK_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate lockfile
+        if: steps.check_lock.outputs.LOCK_EXISTS == 'true'
+        run: npx lockfile-lint --path package-lock.json --allowed-hosts npm --validate-https

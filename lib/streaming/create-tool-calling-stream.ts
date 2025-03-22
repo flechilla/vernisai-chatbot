@@ -1,3 +1,5 @@
+import { enhancedReasoning } from '@/lib/agents/enhanced-reasoning'
+import { enhancedResearcher } from '@/lib/agents/enhanced-researcher'
 import { researcher } from '@/lib/agents/researcher'
 import {
   convertToCoreMessages,
@@ -9,6 +11,9 @@ import { getMaxAllowedTokens, truncateMessages } from '../utils/context-window'
 import { isReasoningModel } from '../utils/registry'
 import { handleStreamFinish } from './handle-stream-finish'
 import { BaseStreamConfig } from './types'
+
+// Feature flag for using the enhanced researcher
+const USE_ENHANCED_RESEARCHER = true
 
 export function createToolCallingStreamResponse(config: BaseStreamConfig) {
   return createDataStreamResponse({
@@ -23,11 +28,36 @@ export function createToolCallingStreamResponse(config: BaseStreamConfig) {
           getMaxAllowedTokens(model)
         )
 
-        let researcherConfig = await researcher({
-          messages: truncatedMessages,
-          model: modelId,
-          searchMode
-        })
+        // Determine if we should use the reasoning agent
+        const isReasoning = isReasoningModel(modelId)
+
+        // Choose the appropriate agent based on model capabilities and features
+        let researcherConfig
+
+        if (isReasoning) {
+          // Use enhanced reasoning for reasoning models
+          console.log('Using enhanced reasoning agent')
+          researcherConfig = await enhancedReasoning({
+            messages: truncatedMessages,
+            model: modelId
+          })
+        } else if (USE_ENHANCED_RESEARCHER) {
+          // Use enhanced researcher for search-capable models
+          console.log('Using enhanced researcher agent')
+          researcherConfig = await enhancedResearcher({
+            messages: truncatedMessages,
+            model: modelId,
+            searchMode
+          })
+        } else {
+          // Fall back to legacy researcher
+          console.log('Using legacy researcher agent')
+          researcherConfig = researcher({
+            messages: truncatedMessages,
+            model: modelId,
+            searchMode
+          })
+        }
 
         const result = streamText({
           ...researcherConfig,
@@ -38,7 +68,7 @@ export function createToolCallingStreamResponse(config: BaseStreamConfig) {
               model: modelId,
               chatId,
               dataStream,
-              skipRelatedQuestions: isReasoningModel(modelId)
+              skipRelatedQuestions: isReasoning // Skip related questions for reasoning models
             })
           }
         })

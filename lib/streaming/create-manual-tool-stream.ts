@@ -5,12 +5,18 @@ import {
   JSONValue,
   streamText
 } from 'ai'
+import { enhancedReasoning } from '../agents/enhanced-reasoning'
+import { enhancedResearcher } from '../agents/enhanced-researcher'
 import { manualResearcher } from '../agents/manual-researcher'
 import { ExtendedCoreMessage } from '../types'
 import { getMaxAllowedTokens, truncateMessages } from '../utils/context-window'
+import { isReasoningModel } from '../utils/registry'
 import { handleStreamFinish } from './handle-stream-finish'
 import { executeToolCall } from './tool-execution'
 import { BaseStreamConfig } from './types'
+
+// Feature flag for using the enhanced researcher
+const USE_ENHANCED_RESEARCHER = true
 
 export function createManualToolStreamResponse(config: BaseStreamConfig) {
   return createDataStreamResponse({
@@ -36,11 +42,36 @@ export function createManualToolStreamResponse(config: BaseStreamConfig) {
             searchMode
           )
 
-        const researcherConfig = manualResearcher({
-          messages: [...truncatedMessages, ...toolCallMessages],
-          model: modelId,
-          isSearchEnabled: searchMode
-        })
+        // Determine if we should use the reasoning agent
+        const isReasoning = isReasoningModel(modelId)
+
+        // Choose the appropriate agent based on model capabilities and features
+        let researcherConfig
+
+        if (isReasoning) {
+          // Use enhanced reasoning for reasoning models
+          console.log('Using enhanced reasoning agent (manual mode)')
+          researcherConfig = await enhancedReasoning({
+            messages: [...truncatedMessages, ...toolCallMessages],
+            model: modelId
+          })
+        } else if (USE_ENHANCED_RESEARCHER) {
+          // Use enhanced researcher for search-capable models
+          console.log('Using enhanced researcher agent (manual mode)')
+          researcherConfig = await enhancedResearcher({
+            messages: [...truncatedMessages, ...toolCallMessages],
+            model: modelId,
+            searchMode
+          })
+        } else {
+          // Fall back to manual researcher
+          console.log('Using legacy manual researcher agent')
+          researcherConfig = manualResearcher({
+            messages: [...truncatedMessages, ...toolCallMessages],
+            model: modelId,
+            isSearchEnabled: searchMode
+          })
+        }
 
         // Variables to track the reasoning timing.
         let reasoningStartTime: number | null = null
@@ -69,7 +100,7 @@ export function createManualToolStreamResponse(config: BaseStreamConfig) {
               model: modelId,
               chatId,
               dataStream,
-              skipRelatedQuestions: true,
+              skipRelatedQuestions: isReasoning, // Skip related questions for reasoning models
               annotations
             })
           },
