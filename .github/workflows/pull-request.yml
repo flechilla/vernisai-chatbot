@@ -1,0 +1,70 @@
+name: Pull Request Workflow
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Cache Turborepo
+        uses: actions/cache@v3
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Check for changes documentation
+        run: |
+          # Get current date
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          CHANGES_FILE="changes/$CURRENT_DATE.md"
+
+          # Check if the changes file exists and contains changes
+          if [ ! -f "$CHANGES_FILE" ] || [ ! -s "$CHANGES_FILE" ]; then
+            echo "::error::Please document your changes in $CHANGES_FILE"
+            exit 1
+          fi
+
+          echo "Changes documented in $CHANGES_FILE"
+
+  validate-lockfile:
+    name: Validate package-lock.json
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate lockfile
+        run: npx lockfile-lint --path package-lock.json --allowed-hosts npm --validate-https
