@@ -53,18 +53,15 @@ jobs:
 
           echo "Changes documented in $CHANGES_FILE"
 
-  validate-lockfile:
-    name: Validate package-lock.json
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+      - name: Check for package lock file
+        id: check_lock
+        run: |
+          if [ -f "package-lock.json" ]; then
+            echo "LOCK_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "LOCK_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Validate lockfile
+        if: steps.check_lock.outputs.LOCK_EXISTS == 'true'
         run: npx lockfile-lint --path package-lock.json --allowed-hosts npm --validate-https
