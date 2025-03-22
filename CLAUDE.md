@@ -33,4 +33,8 @@
 - Provide appropriate fallbacks for failed operations
 - Log errors with contextual information
 
+## Log Changes
+
+- Analyze the changes and add the changes summary the right file in the /changes folder. Each has a name format: yyyy-mm-dd.md. If today file doesn't exist, then create it. You will add using a concise title that decribe the changes (##) and bullet point with the changes; your change should be added at the end; form the title as: ## <title of changes> - <hh:mm am/pm>
+
 NOTE: DOn't commit changes or do anything related to git if not instructed directly
